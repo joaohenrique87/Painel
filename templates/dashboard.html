@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Operacional CBMPE</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.0/font/bootstrap-icons.min.css">
+    <style>
+        :root { --azul: #3155A4; --vermelho: #AA4400; }
+        body { background-color: #f4f6f8; }
+        .sidebar-filters { background: white; border-right: 1px solid #ddd; min-height: 100vh; padding: 20px; }
+        .card-kpi { border-radius: 8px; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-2 sidebar-filters">
+            <h5 class="text-primary fw-bold mb-4"><i class="bi bi-funnel"></i> Filtros</h5>
+            
+            <form action="/" method="GET" id="filterForm">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Ano</label>
+                    <select name="ano" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="Todos">Todos</option>
+                        {% for a in anos %}
+                        <option value="{{ a }}" {% if filtros_ativos.ano == a|string %}selected{% endif %}>{{ a }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Natureza</label>
+                    <select name="grupo" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="Todos">Todas</option>
+                        {% for g in grupos %}
+                        <option value="{{ g }}" {% if filtros_ativos.grupo == g %}selected{% endif %}>{{ g }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Região</label>
+                    <select name="regiao" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="Todos">Todas</option>
+                        {% for r in regioes %}
+                        <option value="{{ r }}" {% if filtros_ativos.regiao == r %}selected{% endif %}>{{ r }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label small fw-bold">Gravidade</label>
+                    <select name="gravidade" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="Todos">Todos</option>
+                        <option value="0" {% if filtros_ativos.gravidade == '0' %}selected{% endif %}>Normal</option>
+                        <option value="1" {% if filtros_ativos.gravidade == '1' %}selected{% endif %}>Nível 1 (5+)</option>
+                        <option value="2" {% if filtros_ativos.gravidade == '2' %}selected{% endif %}>Nível 2 (10+)</option>
+                    </select>
+                </div>
+
+                <div class="d-grid">
+                    <a href="/" class="btn btn-outline-secondary btn-sm">Limpar Filtros</a>
+                </div>
+                
+                <hr class="my-4">
+                <div class="d-grid">
+                    <a href="/predicao" class="btn btn-danger btn-sm fw-bold">
+                        <i class="bi bi-robot"></i> Ir para o Modelo Preditivo
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <div class="col-md-10 p-4">
+            <h3 class="mb-4 fw-bold text-secondary">Dashboard Operacional - Corpo de Bombeiros Militar de Pernambuco</h3>
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card card-kpi p-3 border-start border-5 border-primary">
+                        <h6 class="text-muted text-uppercase small">Total Filtrado</h6>
+                        <h2 class="fw-bold mb-0">{{ total }}</h2>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card card-kpi p-3 border-start border-5 border-danger">
+                        <h6 class="text-muted text-uppercase small">Vítimas no Período</h6>
+                        <h2 class="fw-bold mb-0 text-danger">{{ vitimas }}</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="card shadow-sm h-100 p-3">
+                        <h6 class="fw-bold small">Regiões</h6>
+                        <div style="height:200px"><canvas id="chartRegiao"></canvas></div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card shadow-sm h-100 p-3">
+                        <h6 class="fw-bold small">Naturezas</h6>
+                        <div style="height:200px"><canvas id="chartNatureza"></canvas></div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card shadow-sm h-100 p-3">
+                        <h6 class="fw-bold small">Gravidade</h6>
+                        <div style="height:200px"><canvas id="chartGravidade"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-white fw-bold">Detalhamento dos Registros</div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 small">
+                        <thead><tr><th>Data</th><th>Região</th><th>Natureza</th><th>Relato</th><th>Vítimas</th></tr></thead>
+                        <tbody>
+                            {% for o in ultimas %}
+                            <tr>
+                                <td>{{ o.data_ocorrencia.strftime('%d/%m/%Y %H:%M') }}</td>
+                                <td>{{ o.regiao_operacional }}</td>
+                                <td>{{ o.natureza.grupo }}</td>
+                                <td class="text-muted fst-italic">{{ o.natureza.natureza_inicial_aviso }}</td>
+                                <td>{{ o.acidente_massivo.vitimas }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    
+    const dadosRegiao = { labels: [{% for i in dados_regiao %} "{{i._id}}", {% endfor %}], data: [{% for i in dados_regiao %} {{i.count}}, {% endfor %}] };
+    const dadosNat = { labels: [{% for i in dados_natureza %} "{{i._id}}", {% endfor %}], data: [{% for i in dados_natureza %} {{i.count}}, {% endfor %}] };
+    const dadosGrav = { labels: [{% for i in dados_massivo %} "Nível {{i._id}}", {% endfor %}], data: [{% for i in dados_massivo %} {{i.count}}, {% endfor %}] };
+
+    new Chart(document.getElementById('chartRegiao'), { type: 'doughnut', data: { labels: dadosRegiao.labels, datasets: [{ data: dadosRegiao.data, backgroundColor: ['#3155A4', '#AA4400', '#FFB511', '#28a745'] }] } });
+    new Chart(document.getElementById('chartNatureza'), { type: 'bar', data: { labels: dadosNat.labels, datasets: [{ data: dadosNat.data, backgroundColor: '#3155A4' }] }, options: { indexAxis: 'y', plugins: { legend: { display: false } } } });
+    new Chart(document.getElementById('chartGravidade'), { type: 'bar', data: { labels: dadosGrav.labels, datasets: [{ data: dadosGrav.data, backgroundColor: ['#28a745', '#dc3545', '#000'] }] }, options: { plugins: { legend: { display: false } } } });
+</script>
+
+</body>
+</html>

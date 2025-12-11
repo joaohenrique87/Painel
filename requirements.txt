@@ -1,0 +1,8 @@
+flask
+pymongo
+dnspython
+xgboost
+scikit-learn
+pandas
+faker
+joblib
