@@ -9,45 +9,41 @@ from dotenv import load_dotenv
 
 app = Flask(__name__)
 
-client = None
-db = None
-col = None
-erro_conexao = None
-
-modelo_natureza = None
-modelo_vitimas = None
-modelo_tempo = None
-modelo_massivo = None
-le_regiao = None
-le_relato = None
-le_natureza = None
-
-load_dotenv()
-
-MONGO_URI = os.getenv("MONGO_URI")
 try:
+    if not MONGO_URI:
+        raise ValueError("A variável MONGO_URI não foi encontrada. Verifique o .env ou as configurações do Render.")
+
     client = MongoClient(MONGO_URI)
+    # Teste rápido de conexão (timeout de 5s para não travar o server)
+    client.admin.command('ping')
+    
     db = client['cbmpe_db']
     col = db['ocorrencias']
     
-    base_path = 'modelos/'
+    # Caminho dos modelos
+    # Tenta descobrir se está na raiz ou na pasta models/
+    base_path = ''
+    if os.path.exists('modelos'):
+        base_path = 'modelos/'
+    elif os.path.exists('models'):
+        base_path = 'models/'
+    
+    print(f">>> Buscando IA em: '{base_path}'")
 
-
-    # Carregar Modelos
     modelo_natureza = joblib.load(base_path + 'modelo_natureza.pkl')
     modelo_vitimas = joblib.load(base_path + 'modelo_vitimas.pkl')
     modelo_tempo = joblib.load(base_path + 'modelo_tempo.pkl')
     modelo_massivo = joblib.load(base_path + 'modelo_massivo.pkl')
     
-    # Carregar Encoders
     le_regiao = joblib.load(base_path + 'encoder_regiao.pkl')
     le_relato = joblib.load(base_path + 'encoder_relato.pkl')
     le_natureza = joblib.load(base_path + 'encoder_natureza.pkl')
     
-    print("Rodando...")
-except Exception as e:
-    print(f"ERRO: {e}")
+    print(">>> SISTEMA ONLINE: Conexão e IA carregadas.")
 
+except Exception as e:
+    erro_conexao = str(e)
+    print(f"XXX ERRO CRÍTICO NO STARTUP: {e}")
 # --- DASHBOARD COM FILTROS ---
 @app.route('/')
 def dashboard():
