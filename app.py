@@ -9,6 +9,11 @@ from dotenv import load_dotenv
 
 app = Flask(__name__)
 
+client = None
+db = None
+col = None
+erro_conexao = None
+
 modelo_natureza = None
 modelo_vitimas = None
 modelo_tempo = None
