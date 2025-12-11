@@ -4,12 +4,16 @@
     <meta charset="UTF-8">
     <title>Dashboard Operacional CBMPE</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.0/font/bootstrap-icons.min.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+
     <style>
         :root { --azul: #3155A4; --vermelho: #AA4400; }
         body { background-color: #f4f6f8; }
-        .sidebar-filters { background: white; border-right: 1px solid #ddd; min-height: 100vh; padding: 20px; }
+        .sidebar-filters { background: white; border-right: 1px solid #ddd; min-height: 100vh; padding: 20px; }       
+        .chart-container { position: relative; height: 300px; width: 100%; } 
         .card-kpi { border-radius: 8px; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     </style>
 </head>
@@ -19,7 +23,6 @@
     <div class="row">
         <div class="col-md-2 sidebar-filters">
             <h5 class="text-primary fw-bold mb-4"><i class="bi bi-funnel"></i> Filtros</h5>
-            
             <form action="/" method="GET" id="filterForm">
                 <div class="mb-3">
                     <label class="form-label small fw-bold">Ano</label>
@@ -30,7 +33,6 @@
                         {% endfor %}
                     </select>
                 </div>
-                
                 <div class="mb-3">
                     <label class="form-label small fw-bold">Natureza</label>
                     <select name="grupo" class="form-select form-select-sm" onchange="this.form.submit()">
@@ -40,7 +42,6 @@
                         {% endfor %}
                     </select>
                 </div>
-
                 <div class="mb-3">
                     <label class="form-label small fw-bold">Região</label>
                     <select name="regiao" class="form-select form-select-sm" onchange="this.form.submit()">
@@ -50,7 +51,6 @@
                         {% endfor %}
                     </select>
                 </div>
-
                 <div class="mb-4">
                     <label class="form-label small fw-bold">Gravidade</label>
                     <select name="gravidade" class="form-select form-select-sm" onchange="this.form.submit()">
@@ -60,34 +60,32 @@
                         <option value="2" {% if filtros_ativos.gravidade == '2' %}selected{% endif %}>Nível 2 (10+)</option>
                     </select>
                 </div>
-
-                <div class="d-grid">
-                    <a href="/" class="btn btn-outline-secondary btn-sm">Limpar Filtros</a>
-                </div>
-                
-                <hr class="my-4">
-                <div class="d-grid">
-                    <a href="/predicao" class="btn btn-danger btn-sm fw-bold">
-                        <i class="bi bi-robot"></i> Ir para o Modelo Preditivo
-                    </a>
+                <div class="d-grid gap-2">
+                    <a href="/" class="btn btn-outline-secondary btn-sm">Limpar</a>
+                    <hr>
+                    <a href="/predicao" class="btn btn-danger btn-sm fw-bold"><i class="bi bi-robot"></i> Ir para IA</a>
                 </div>
             </form>
         </div>
 
         <div class="col-md-10 p-4">
-            <h3 class="mb-4 fw-bold text-secondary">Dashboard Operacional - Corpo de Bombeiros Militar de Pernambuco</h3>
+            <h3 class="mb-4 fw-bold text-secondary">Dashboard Operacional</h3>
 
             <div class="row mb-4">
                 <div class="col-md-6">
                     <div class="card card-kpi p-3 border-start border-5 border-primary">
-                        <h6 class="text-muted text-uppercase small">Total Filtrado</h6>
-                        <h2 class="fw-bold mb-0">{{ total }}</h2>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div><h6 class="text-muted text-uppercase small">Total Filtrado</h6><h2 class="fw-bold mb-0">{{ total }}</h2></div>
+                            <i class="bi bi-archive text-primary opacity-25 display-4"></i>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="card card-kpi p-3 border-start border-5 border-danger">
-                        <h6 class="text-muted text-uppercase small">Vítimas no Período</h6>
-                        <h2 class="fw-bold mb-0 text-danger">{{ vitimas }}</h2>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div><h6 class="text-muted text-uppercase small">Vítimas no Período</h6><h2 class="fw-bold mb-0 text-danger">{{ vitimas }}</h2></div>
+                            <i class="bi bi-activity text-danger opacity-25 display-4"></i>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -95,37 +93,47 @@
             <div class="row g-3 mb-4">
                 <div class="col-md-4">
                     <div class="card shadow-sm h-100 p-3">
-                        <h6 class="fw-bold small">Regiões</h6>
-                        <div style="height:200px"><canvas id="chartRegiao"></canvas></div>
+                        <h6 class="fw-bold small text-center mb-3">Distribuição Regional</h6>
+                        <div class="chart-container">
+                            <canvas id="chartRegiao"></canvas>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="card shadow-sm h-100 p-3">
-                        <h6 class="fw-bold small">Naturezas</h6>
-                        <div style="height:200px"><canvas id="chartNatureza"></canvas></div>
+                        <h6 class="fw-bold small text-center mb-3">Ocorrências por Natureza</h6>
+                        <div class="chart-container">
+                            <canvas id="chartNatureza"></canvas>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="card shadow-sm h-100 p-3">
-                        <h6 class="fw-bold small">Gravidade</h6>
-                        <div style="height:200px"><canvas id="chartGravidade"></canvas></div>
+                        <h6 class="fw-bold small text-center mb-3">Nível de Gravidade</h6>
+                        <div class="chart-container">
+                            <canvas id="chartGravidade"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div class="card shadow-sm">
-                <div class="card-header bg-white fw-bold">Detalhamento dos Registros</div>
+                <div class="card-header bg-white fw-bold">Detalhamento Recente</div>
                 <div class="table-responsive">
-                    <table class="table table-hover mb-0 small">
-                        <thead><tr><th>Data</th><th>Região</th><th>Natureza</th><th>Relato</th><th>Vítimas</th></tr></thead>
+                    <table class="table table-hover mb-0 small align-middle">
+                        <thead class="table-light"><tr><th>Data</th><th>Região</th><th>Natureza</th><th>Relato</th><th>Vítimas</th></tr></thead>
                         <tbody>
                             {% for o in ultimas %}
                             <tr>
                                 <td>{{ o.data_ocorrencia.strftime('%d/%m/%Y %H:%M') }}</td>
-                                <td>{{ o.regiao_operacional }}</td>
-                                <td>{{ o.natureza.grupo }}</td>
-                                <td class="text-muted fst-italic">{{ o.natureza.natureza_inicial_aviso }}</td>
-                                <td>{{ o.acidente_massivo.vitimas }}</td>
+                                <td><span class="badge bg-secondary">{{ o.regiao_operacional }}</span></td>
+                                <td>{{ o.natureza.grupo.replace('_', ' ') }}</td>
+                                <td class="text-muted fst-italic text-truncate" style="max-width: 200px;">{{ o.natureza.natureza_inicial_aviso }}</td>
+                                <td>
+                                    {% if o.acidente_massivo.vitimas > 0 %}
+                                    <span class="fw-bold text-danger">{{ o.acidente_massivo.vitimas }}</span>
+                                    {% else %}-{% endif %}
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -138,13 +146,140 @@
 
 <script>
     
-    const dadosRegiao = { labels: [{% for i in dados_regiao %} "{{i._id}}", {% endfor %}], data: [{% for i in dados_regiao %} {{i.count}}, {% endfor %}] };
-    const dadosNat = { labels: [{% for i in dados_natureza %} "{{i._id}}", {% endfor %}], data: [{% for i in dados_natureza %} {{i.count}}, {% endfor %}] };
-    const dadosGrav = { labels: [{% for i in dados_massivo %} "Nível {{i._id}}", {% endfor %}], data: [{% for i in dados_massivo %} {{i.count}}, {% endfor %}] };
+    Chart.register(ChartDataLabels);
 
-    new Chart(document.getElementById('chartRegiao'), { type: 'doughnut', data: { labels: dadosRegiao.labels, datasets: [{ data: dadosRegiao.data, backgroundColor: ['#3155A4', '#AA4400', '#FFB511', '#28a745'] }] } });
-    new Chart(document.getElementById('chartNatureza'), { type: 'bar', data: { labels: dadosNat.labels, datasets: [{ data: dadosNat.data, backgroundColor: '#3155A4' }] }, options: { indexAxis: 'y', plugins: { legend: { display: false } } } });
-    new Chart(document.getElementById('chartGravidade'), { type: 'bar', data: { labels: dadosGrav.labels, datasets: [{ data: dadosGrav.data, backgroundColor: ['#28a745', '#dc3545', '#000'] }] }, options: { plugins: { legend: { display: false } } } });
+   
+    Chart.defaults.font.family = "'Segoe UI', sans-serif";
+    Chart.defaults.color = '#555';
+    
+   
+    function formatarLabel(label) {
+        
+        return label.replace(/_/g, ' ').split(' ');
+    }
+
+    // Graf Região
+    const dadosRegiao = { 
+        labels: [{% for i in dados_regiao %} "{{i._id}}", {% endfor %}], 
+        data: [{% for i in dados_regiao %} {{i.count}}, {% endfor %}] 
+    };
+
+    new Chart(document.getElementById('chartRegiao'), {
+        type: 'doughnut',
+        data: {
+            labels: dadosRegiao.labels,
+            datasets: [{
+                data: dadosRegiao.data,
+                backgroundColor: ['#3155A4', '#AA4400', '#FFB511', '#198754', '#6c757d', '#20c997'],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: 20 },
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 10, padding: 15 } },
+                datalabels: {
+                    color: '#fff',
+                    font: { weight: 'bold', size: 11 },
+                    formatter: (value) => value // Mostra o número dentro da fatia
+                }
+            }
+        }
+    });
+
+    // Graf natureza
+    const rawLabelsNat = [{% for i in dados_natureza %} "{{i._id}}", {% endfor %}];
+    
+    const formattedLabelsNat = rawLabelsNat.map(label => formatarLabel(label));
+
+    const dadosNat = { 
+        data: [{% for i in dados_natureza %} {{i.count}}, {% endfor %}] 
+    };
+
+    new Chart(document.getElementById('chartNatureza'), {
+        type: 'bar',
+        data: {
+            labels: formattedLabelsNat,
+            datasets: [{
+                label: 'Ocorrências',
+                data: dadosNat.data,
+                backgroundColor: '#3155A4',
+                borderRadius: 4,
+                barPercentage: 0.7
+            }]
+        },
+        options: {
+            indexAxis: 'y', 
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { right: 30 } }, 
+            scales: {
+                x: { display: false }, 
+                y: { 
+                    ticks: { 
+                        font: { size: 11, weight: '600' },
+                        autoSkip: false 
+                    } 
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    anchor: 'end', 
+                    align: 'end',
+                    color: '#3155A4',
+                    font: { weight: 'bold' },
+                    formatter: (value) => value
+                }
+            }
+        }
+    });
+
+    // Graf gravidade
+    const dadosGrav = { 
+        labels: [{% for i in dados_massivo %} 
+            {% if i._id == 0 %} "Normal" 
+            {% elif i._id == 1 %} "Nível 1" 
+            {% else %} "Nível 2" {% endif %}, 
+        {% endfor %}], 
+        data: [{% for i in dados_massivo %} {{i.count}}, {% endfor %}] 
+    };
+
+    new Chart(document.getElementById('chartGravidade'), {
+        type: 'bar',
+        data: {
+            labels: dadosGrav.labels,
+            datasets: [{
+                data: dadosGrav.data,
+                backgroundColor: ['#28a745', '#fd7e14', '#dc3545'],
+                borderRadius: 5,
+                barThickness: 40
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { 
+                    display: false,
+                    grace: '15%' 
+                 }, 
+                x: { grid: { display: false } }
+            },
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    anchor: 'end',
+                    align: 'top', 
+                    color: '#555',
+                    font: { weight: 'bold' }
+                }
+            }
+        }
+    });
 </script>
 
 </body>

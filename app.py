@@ -4,25 +4,40 @@ import pandas as pd
 import joblib
 import numpy as np
 from datetime import datetime
+import os
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 
-MONGO_URI = "mongodb+srv://admin:oJwjAXlKR4rhkDn0@cluster0.euh9zno.mongodb.net/?appName=Cluster0"
+modelo_natureza = None
+modelo_vitimas = None
+modelo_tempo = None
+modelo_massivo = None
+le_regiao = None
+le_relato = None
+le_natureza = None
+
+load_dotenv()
+
+MONGO_URI = os.getenv("MONGO_URI")
 try:
     client = MongoClient(MONGO_URI)
     db = client['cbmpe_db']
     col = db['ocorrencias']
     
+    base_path = 'modelos/'
+
+
     # Carregar Modelos
-    modelo_natureza = joblib.load('modelo_natureza.pkl')
-    modelo_vitimas = joblib.load('modelo_vitimas.pkl')
-    modelo_tempo = joblib.load('modelo_tempo.pkl')
-    modelo_massivo = joblib.load('modelo_massivo.pkl')
+    modelo_natureza = joblib.load(base_path + 'modelo_natureza.pkl')
+    modelo_vitimas = joblib.load(base_path + 'modelo_vitimas.pkl')
+    modelo_tempo = joblib.load(base_path + 'modelo_tempo.pkl')
+    modelo_massivo = joblib.load(base_path + 'modelo_massivo.pkl')
     
     # Carregar Encoders
-    le_regiao = joblib.load('encoder_regiao.pkl')
-    le_relato = joblib.load('encoder_relato.pkl')
-    le_natureza = joblib.load('encoder_natureza.pkl')
+    le_regiao = joblib.load(base_path + 'encoder_regiao.pkl')
+    le_relato = joblib.load(base_path + 'encoder_relato.pkl')
+    le_natureza = joblib.load(base_path + 'encoder_natureza.pkl')
     
     print("Rodando...")
 except Exception as e:
