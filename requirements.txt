@@ -7,3 +7,4 @@ pandas
 faker
 joblib
 gunicorn
+python-dotenv
