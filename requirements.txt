@@ -6,3 +6,4 @@ scikit-learn
 pandas
 faker
 joblib
+gunicorn
