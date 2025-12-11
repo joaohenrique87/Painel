@@ -1,27 +1,47 @@
+import os
 from flask import Flask, render_template, request
 from pymongo import MongoClient
 import pandas as pd
 import joblib
 import numpy as np
 from datetime import datetime
-import os
 from dotenv import load_dotenv
 
 app = Flask(__name__)
 
+# --- 1. INICIALIZAÇÃO DE VARIÁVEIS GLOBAIS (Segurança) ---
+client = None
+db = None
+col = None
+erro_conexao = "Inicializando..."
+
+modelo_natureza = None
+modelo_vitimas = None
+modelo_tempo = None
+modelo_massivo = None
+le_regiao = None
+le_relato = None
+le_natureza = None
+
+# --- 2. CARREGAR CONFIGURAÇÕES ---
+load_dotenv()
+# Pega a variável do ambiente (Render) ou do arquivo .env
+MONGO_URI = os.getenv("MONGO_URI")
+
+# --- 3. TENTATIVA DE CONEXÃO E CARREGAMENTO ---
 try:
     if not MONGO_URI:
-        raise ValueError("A variável MONGO_URI não foi encontrada. Verifique o .env ou as configurações do Render.")
+        raise ValueError("A variável de ambiente 'MONGO_URI' não foi encontrada. Configure no Painel do Render.")
 
+    # Conexão com o Banco
     client = MongoClient(MONGO_URI)
-    # Teste rápido de conexão (timeout de 5s para não travar o server)
+    # Teste rápido (5s timeout) para garantir que conectou
     client.admin.command('ping')
     
     db = client['cbmpe_db']
     col = db['ocorrencias']
     
-    # Caminho dos modelos
-    # Tenta descobrir se está na raiz ou na pasta models/
+    # Caminho dos modelos (Verifica onde o Render salvou)
     base_path = ''
     if os.path.exists('modelos'):
         base_path = 'modelos/'
@@ -30,6 +50,7 @@ try:
     
     print(f">>> Buscando IA em: '{base_path}'")
 
+    # Carregar IA
     modelo_natureza = joblib.load(base_path + 'modelo_natureza.pkl')
     modelo_vitimas = joblib.load(base_path + 'modelo_vitimas.pkl')
     modelo_tempo = joblib.load(base_path + 'modelo_tempo.pkl')
@@ -39,107 +60,88 @@ try:
     le_relato = joblib.load(base_path + 'encoder_relato.pkl')
     le_natureza = joblib.load(base_path + 'encoder_natureza.pkl')
     
-    print(">>> SISTEMA ONLINE: Conexão e IA carregadas.")
+    print(">>> SISTEMA ONLINE: Conexão e IA carregadas com sucesso.")
+    erro_conexao = None # Limpa o erro se tudo deu certo
 
 except Exception as e:
     erro_conexao = str(e)
     print(f"XXX ERRO CRÍTICO NO STARTUP: {e}")
-# --- DASHBOARD COM FILTROS ---
+
+# --- ROTA 1: DASHBOARD ---
 @app.route('/')
 def dashboard():
-    # Filtros
-    filtro_ano = request.args.get('ano')
-    filtro_grupo = request.args.get('grupo')
-    filtro_gravidade = request.args.get('gravidade')
-    filtro_regiao = request.args.get('regiao')
+    # VERIFICAÇÃO DE SEGURANÇA (Se o banco falhou, não quebra o site)
+    if col is None:
+        return f"""
+        <div style='text-align:center; padding:50px; font-family:sans-serif;'>
+            <h1 style='color:red;'>⚠️ Serviço Indisponível</h1>
+            <p>O sistema não conseguiu conectar ao Banco de Dados.</p>
+            <p><strong>Erro Técnico:</strong> {erro_conexao}</p>
+            <hr>
+            <p><em>Dica: Verifique se a variável MONGO_URI foi adicionada nas configurações do Render.</em></p>
+        </div>
+        """, 500
 
-    # Gerando a query
-    query = {}
-    
-    if filtro_ano and filtro_ano != "Todos":
-        query['ano'] = int(filtro_ano)
+    try:
+        filtro_ano = request.args.get('ano')
+        filtro_grupo = request.args.get('grupo')
+        filtro_gravidade = request.args.get('gravidade')
+        filtro_regiao = request.args.get('regiao')
+
+        query = {}
+        if filtro_ano and filtro_ano != "Todos": query['ano'] = int(filtro_ano)
+        if filtro_grupo and filtro_grupo != "Todos": query['natureza.grupo'] = filtro_grupo
+        if filtro_gravidade and filtro_gravidade != "Todos": query['acidente_massivo.nivel'] = int(filtro_gravidade)
+        if filtro_regiao and filtro_regiao != "Todos": query['regiao_operacional'] = filtro_regiao
+
+        total = col.count_documents(query)
         
-    if filtro_grupo and filtro_grupo != "Todos":
-        query['natureza.grupo'] = filtro_grupo
+        pipeline_vitimas = [{"$match": query}, {"$group": {"_id": None, "total": {"$sum": "$acidente_massivo.vitimas"}}}]
+        res_vitimas = list(col.aggregate(pipeline_vitimas))
+        total_vitimas = res_vitimas[0]['total'] if res_vitimas else 0
         
-    if filtro_gravidade and filtro_gravidade != "Todos":
-        query['acidente_massivo.nivel'] = int(filtro_gravidade)
+        pipeline_regiao = [{"$match": query}, {"$group": {"_id": "$regiao_operacional", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}]
+        dados_regiao = list(col.aggregate(pipeline_regiao))
+
+        pipeline_natureza = [{"$match": query}, {"$group": {"_id": "$natureza.grupo", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}]
+        dados_natureza = list(col.aggregate(pipeline_natureza))
+
+        pipeline_massivo = [{"$match": query}, {"$group": {"_id": "$acidente_massivo.nivel", "count": {"$sum": 1}}}, {"$sort": {"_id": 1}}]
+        dados_massivo = list(col.aggregate(pipeline_massivo))
         
-    if filtro_regiao and filtro_regiao != "Todos":
-        query['regiao_operacional'] = filtro_regiao
+        ultimas = col.find(query).sort("data_ocorrencia", -1).limit(10)
+        
+        anos = sorted(col.distinct("ano"), reverse=True)
+        grupos = sorted(col.distinct("natureza.grupo"))
+        regioes = sorted(col.distinct("regiao_operacional"))
+        
+        return render_template('dashboard.html', total=total, vitimas=total_vitimas, dados_regiao=dados_regiao, dados_natureza=dados_natureza, dados_massivo=dados_massivo, ultimas=ultimas, anos=anos, grupos=grupos, regioes=regioes, filtros_ativos=request.args)
+    
+    except Exception as e:
+        return f"Erro interno ao processar dados: {e}", 500
 
-    # agregando aos KPIs
-    
-    
-    total = col.count_documents(query)
-    
-    # KPI Vítimas 
-    pipeline_vitimas = [
-        {"$match": query}, 
-        {"$group": {"_id": None, "total": {"$sum": "$acidente_massivo.vitimas"}}}
-    ]
-    res_vitimas = list(col.aggregate(pipeline_vitimas))
-    total_vitimas = res_vitimas[0]['total'] if res_vitimas else 0
-    
-    # Graf região
-    pipeline_regiao = [
-        {"$match": query},
-        {"$group": {"_id": "$regiao_operacional", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}}
-    ]
-    dados_regiao = list(col.aggregate(pipeline_regiao))
-
-    # Graf natureza
-    pipeline_natureza = [
-        {"$match": query},
-        {"$group": {"_id": "$natureza.grupo", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}}
-    ]
-    dados_natureza = list(col.aggregate(pipeline_natureza))
-
-    # Graf gravidade
-    pipeline_massivo = [
-        {"$match": query},
-        {"$group": {"_id": "$acidente_massivo.nivel", "count": {"$sum": 1}}},
-        {"$sort": {"_id": 1}}
-    ]
-    dados_massivo = list(col.aggregate(pipeline_massivo))
-    
-    # Tabela
-    ultimas = col.find(query).sort("data_ocorrencia", -1).limit(10)
-    
-    # listas
-    anos_disponiveis = sorted(col.distinct("ano"), reverse=True)
-    grupos_disponiveis = sorted(col.distinct("natureza.grupo"))
-    regioes_disponiveis = sorted(col.distinct("regiao_operacional"))
-    
-    return render_template('dashboard.html', 
-                           total=total, 
-                           vitimas=total_vitimas,
-                           dados_regiao=dados_regiao,
-                           dados_natureza=dados_natureza,
-                           dados_massivo=dados_massivo,
-                           ultimas=ultimas,                           
-                           anos=anos_disponiveis,
-                           grupos=grupos_disponiveis,
-                           regioes=regioes_disponiveis,
-                           filtros_ativos=request.args) 
-
-# Preditivo
+# --- ROTA 2: PREDICAO ---
 @app.route('/predicao', methods=['GET', 'POST'])
 def predicao():
+    # VERIFICAÇÃO DE SEGURANÇA (Se a IA falhou)
+    if modelo_natureza is None:
+        return f"""
+        <div style='text-align:center; padding:50px; font-family:sans-serif;'>
+            <h2 style='color:red;'>⚠️ Módulo de IA Offline</h2>
+            <p>Os modelos de inteligência artificial não foram carregados.</p>
+            <p><strong>Erro no Banco:</strong> {erro_conexao}</p>
+        </div>
+        """, 500
+
     resultado = None
     erro = None
     graficos_dinamicos = None
     
-    # Gerar gráf
     colunas = ['Região', 'Horário', 'Dia da Semana', 'Relato Inicial']
     
-    # 1. O que define a NATUREZA? 
     imps_nat = modelo_natureza.feature_importances_
     fatores_nat = [{"label": c, "valor": round(float(i)*100, 1)} for c, i in zip(colunas, imps_nat)]
     
-    # 2. O que define as VÍTIMAS? 
     imps_vit = modelo_vitimas.feature_importances_
     fatores_vit = [{"label": c, "valor": round(float(i)*100, 1)} for c, i in zip(colunas, imps_vit)]
     
@@ -169,7 +171,6 @@ def predicao():
             X = pd.DataFrame([[regiao_cod, dt_obj.hour, dt_obj.weekday(), relato_cod]], 
                              columns=['regiao_cod', 'hora', 'dia_semana', 'relato_cod'])
             
-            # Previsões
             nat_cod = modelo_natureza.predict(X)[0]
             nat_texto = le_natureza.inverse_transform([nat_cod])[0]
             
@@ -179,11 +180,11 @@ def predicao():
             tempo = max(1, int(round(modelo_tempo.predict(X)[0])))
             prob_massivo = modelo_massivo.predict_proba(X)[0][1] * 100
             
-            # Graf prob por natureza            
             probs = modelo_natureza.predict_proba(X)[0]
-            classes = le_natureza.classes_             
+            classes = le_natureza.classes_
+            
             probs_list = [{"label": c, "valor": round(p*100, 1)} for c, p in zip(classes, probs)]
-            probs_list = sorted(probs_list, key=lambda x: x['valor'], reverse=True) # Ordena do mais provável
+            probs_list = sorted(probs_list, key=lambda x: x['valor'], reverse=True)
 
             resultado = {
                 "natureza": nat_texto,
@@ -201,7 +202,7 @@ def predicao():
             }
 
         except Exception as e:
-            erro = f"Erro IA: {str(e)}"
+            erro = f"Erro no processamento da IA: {str(e)}"
 
     return render_template('predicao.html', 
                            opcoes_regiao=opcoes_regiao, 
