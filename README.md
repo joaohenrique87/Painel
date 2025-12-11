@@ -1,4 +1,4 @@
-🚒 SIS-CBMPE | Sistema de Gestão Operacional e Inteligência
+🚒 | Sistema de Gestão Operacional e Inteligência
 Sistema de Dashboard e Predição Tática desenvolvido para auxiliar o Corpo de Bombeiros Militar de Pernambuco (CBMPE). O sistema utiliza Inteligência Artificial (XGBoost) para prever a natureza de ocorrências, estimar o número de vítimas e calcular o tempo de resposta, além de fornecer um painel gerencial completo com filtros dinâmicos.
 
 🚀 Funcionalidades
@@ -47,27 +47,6 @@ Frontend: HTML5, CSS3, Bootstrap 5, Chart.js
 
 Segurança: Python-Dotenv (Variáveis de Ambiente)
 
-📂 Estrutura do Projeto
-Plaintext
-
-/projeto-cbmpe
-│
-├── app.py                 # Servidor Web (Flask) e Rotas
-├── banco.py               # Script para povoar o MongoDB com dados fictícios inteligentes
-├── treinar_modelo.py      # Script para treinar a IA e gerar os arquivos .pkl
-│
-├── .env                   # Arquivo de configuração (NÃO COMPARTILHAR)
-├── .gitignore             # Arquivos ignorados pelo Git
-├── requirements.txt       # Lista de dependências do projeto
-│
-├── models/                # Pasta onde os modelos treinados são salvos
-│     ├── modelo_natureza.pkl
-│     ├── modelo_vitimas.pkl
-│     └── ... (encoders)
-│
-└── templates/             # Páginas HTML (Frontend)
-      ├── dashboard.html   # Painel com gráficos e filtros
-      └── predicao.html    # Interface da IA com simulação
 ⚙️ Como Executar o Projeto
 1. Pré-requisitos
 Certifique-se de ter o Python instalado. Recomenda-se usar um ambiente virtual (venv).
@@ -75,7 +54,7 @@ Certifique-se de ter o Python instalado. Recomenda-se usar um ambiente virtual (
 Bash
 
 # Clone o repositório
-git clone https://github.com/seu-usuario/seu-repositorio.git
+git clone https://github.com/joaohenrique87/Painel
 cd projeto-cbmpe
 
 # Crie e ative o ambiente virtual (Opcional, mas recomendado)
@@ -93,7 +72,7 @@ Crie um arquivo .env na raiz do projeto e adicione sua string de conexão do Mon
 
 Snippet de código
 
-MONGO_URI=mongodb+srv://admin:SUA_SENHA@cluster0.euh9zno.mongodb.net/?appName=Cluster0
+MONGO_URI= Sua string do seu cluster no mongoDB
 4. Preparação dos Dados (ETL e Treinamento)
 Antes de rodar o site, você precisa gerar os dados e treinar a inteligência artificial. Execute na ordem:
 
@@ -111,7 +90,7 @@ python app.py
 Acesse no seu navegador: http://127.0.0.1:5000
 
 🧪 Como Testar a IA
-Vá para a aba "Inteligência (IA)" no menu superior.
+Vá para a aba "Ir para o Modelo Preditivo" no menu lateral.
 
 Preencha o formulário de simulação:
 
