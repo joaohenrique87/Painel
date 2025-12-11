@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 app = Flask(__name__)
 
-# --- 1. INICIALIZAÇÃO DE VARIÁVEIS GLOBAIS (Segurança) ---
+# iniciando as variaveis para tentar subir no Render (Sugestão IA)
 client = None
 db = None
 col = None
@@ -23,9 +23,8 @@ le_regiao = None
 le_relato = None
 le_natureza = None
 
-# --- 2. CARREGAR CONFIGURAÇÕES ---
+# Setando banco
 load_dotenv()
-# Pega a variável do ambiente (Render) ou do arquivo .env
 MONGO_URI = os.getenv("MONGO_URI")
 
 # --- 3. TENTATIVA DE CONEXÃO E CARREGAMENTO ---
@@ -67,10 +66,10 @@ except Exception as e:
     erro_conexao = str(e)
     print(f"XXX ERRO CRÍTICO NO STARTUP: {e}")
 
-# --- ROTA 1: DASHBOARD ---
+# Rota dash
 @app.route('/')
 def dashboard():
-    # VERIFICAÇÃO DE SEGURANÇA (Se o banco falhou, não quebra o site)
+    # Verificação(Se o banco falhou, não quebra o site)
     if col is None:
         return f"""
         <div style='text-align:center; padding:50px; font-family:sans-serif;'>
@@ -83,16 +82,25 @@ def dashboard():
         """, 500
 
     try:
-        filtro_ano = request.args.get('ano')
-        filtro_grupo = request.args.get('grupo')
-        filtro_gravidade = request.args.get('gravidade')
-        filtro_regiao = request.args.get('regiao')
-
+        # lista de filtros
+        filtros_ano = request.args.getlist('ano')
+        filtros_grupo = request.args.getlist('grupo')
+        filtros_gravidade = request.args.getlist('gravidade')
+        filtros_regiao = request.args.getlist('regiao')
+        
         query = {}
-        if filtro_ano and filtro_ano != "Todos": query['ano'] = int(filtro_ano)
-        if filtro_grupo and filtro_grupo != "Todos": query['natureza.grupo'] = filtro_grupo
-        if filtro_gravidade and filtro_gravidade != "Todos": query['acidente_massivo.nivel'] = int(filtro_gravidade)
-        if filtro_regiao and filtro_regiao != "Todos": query['regiao_operacional'] = filtro_regiao
+        
+        if filtros_ano and "Todos" not in filtros_ano:            
+            query['ano'] = {'$in': [int(x) for x in filtros_ano]}
+            
+        if filtros_grupo and "Todos" not in filtros_grupo:
+            query['natureza.grupo'] = {'$in': filtros_grupo}
+            
+        if filtros_gravidade and "Todos" not in filtros_gravidade:          
+            query['acidente_massivo.nivel'] = {'$in': [int(x) for x in filtros_gravidade]}
+            
+        if filtros_regiao and "Todos" not in filtros_regiao:
+            query['regiao_operacional'] = {'$in': filtros_regiao}
 
         total = col.count_documents(query)
         
@@ -115,10 +123,20 @@ def dashboard():
         grupos = sorted(col.distinct("natureza.grupo"))
         regioes = sorted(col.distinct("regiao_operacional"))
         
-        return render_template('dashboard.html', total=total, vitimas=total_vitimas, dados_regiao=dados_regiao, dados_natureza=dados_natureza, dados_massivo=dados_massivo, ultimas=ultimas, anos=anos, grupos=grupos, regioes=regioes, filtros_ativos=request.args)
+        return render_template('dashboard.html', 
+                               total=total, 
+                               vitimas=total_vitimas, 
+                               dados_regiao=dados_regiao, 
+                               dados_natureza=dados_natureza, 
+                               dados_massivo=dados_massivo, 
+                               ultimas=ultimas, 
+                               anos=anos, 
+                               grupos=grupos, 
+                               regioes=regioes,                              
+                               filtros_ativos=request.args)
     
     except Exception as e:
-        return f"Erro interno ao processar dados: {e}", 500
+        return f"Erro interno: {e}", 500
 
 # --- ROTA 2: PREDICAO ---
 @app.route('/predicao', methods=['GET', 'POST'])
@@ -183,13 +201,13 @@ def predicao():
             probs = modelo_natureza.predict_proba(X)[0]
             classes = le_natureza.classes_
             
-            probs_list = [{"label": c, "valor": round(p*100, 1)} for c, p in zip(classes, probs)]
+            probs_list = [{"label": c, "valor": round(float(p)*100, 1)} for c, p in zip(classes, probs)]
             probs_list = sorted(probs_list, key=lambda x: x['valor'], reverse=True)
 
             resultado = {
                 "natureza": nat_texto,
                 "vitimas": vitimas,
-                "vitimas_float": round(vitimas_float, 2),
+                "vitimas_float": round(float(vitimas_float), 2),
                 "tempo": tempo,
                 "risco": round(prob_massivo, 1)
             }
